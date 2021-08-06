@@ -12,7 +12,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
     def __init__(self, image_size, image_channels, classes,
                  fc_layers=3, fc_units=1000, fc_drop=0, fc_bn=False, fc_nl="relu", gated=False,
-                 bias=True, excitability=False, excit_buffer=False, binaryCE=False, binaryCE_distill=False, AGEM=False):
+                 bias=True, excitability=False, excit_buffer=False, binaryCE=False, binaryCE_distill=False, AGEM=False,
+                 ncl = False, momentum = 0.9, alpha = 1e-5):
 
         # configurations
         super().__init__()
@@ -26,6 +27,10 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                                  #   predicted probs as binary targets (only in Class-IL with binaryCE)
         self.AGEM = AGEM  #-> use gradient of replayed data as inequality constraint for (instead of adding it to)
                           #   the gradient of the current data (as in A-GEM, see Chaudry et al., 2019; ICLR)
+            
+        self.ncl = ncl #whether to use the NCL algorithm
+        self.momentum = momentum #how much momentum to use with SGD
+        self.alpha = alpha #alpha used to regularize the Fisher inversion
 
         # check whether there is at least 1 fc-layer
         if fc_layers<1:
@@ -259,6 +264,16 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                         n_param = p.numel()  # number of parameters in [p]
                         p.grad.copy_(grad_proj[index:index+n_param].view_as(p))
                         index += n_param
+                        
+                        
+        if self.ncl and x_ is not None: #use NCL gradients
+            for n, p in self.named_parameters():
+                if p.requires_grad:
+                    # Retrieve stored mode (MAP estimate) and precision (Fisher Information matrix)
+                    n = n.replace('.', '__')
+                    fisher = getattr(self, '{}_EWC_estimated_fisher{}'.format(n, "" if self.online else task))
+                    p.grad *= (fisher+self.alpha**2)**(-1)
+
 
         # Take optimization-step
         self.optimizer.step()

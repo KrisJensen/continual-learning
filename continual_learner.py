@@ -30,6 +30,9 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
         self.fisher_n = None    #-> sample size for estimating FI-matrix (if "None", full pass over dataset)
         self.emp_FI = False     #-> if True, use provided labels to calculate FI ("empirical FI"); else predicted labels
         self.EWC_task_count = 0 #-> keeps track of number of quadratic loss terms (for "offline EWC")
+        
+        self.data_size = 10000 #data size is the inverse prior
+        self.initialize_fisher() #initialize fisher with prior
 
     def _device(self):
         return next(self.parameters()).device
@@ -67,6 +70,18 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
 
 
     #----------------- EWC-specifc functions -----------------#
+    
+    def initialize_fisher(self):
+        # initialize fisher matrix with the prior precision (c.f. NCL)
+        for n, p in self.named_parameters():
+            if p.requires_grad:
+                n = n.replace('.', '__')
+                # -mode (=MAP parameter estimate)
+                self.register_buffer('{}_EWC_prev_task{}'.format(n, "" if self.online else self.EWC_task_count+1),
+                                     p.detach().clone())
+                # -precision (approximated by diagonal Fisher Information matrix)
+                self.register_buffer('{}_EWC_estimated_fisher{}'.format(n, "" if self.online else self.EWC_task_count+1),
+                                     torch.ones(p.shape)/self.data_size)
 
     def estimate_fisher(self, dataset, allowed_classes=None, collate_fn=None):
         '''After completing training on a task, estimate diagonal of Fisher Information matrix.

@@ -230,7 +230,7 @@ def run(args, verbose=False):
     if model.optim_type in ("adam", "adam_reset"):
         model.optimizer = optim.Adam(model.optim_list, betas=(0.9, 0.999))
     elif model.optim_type=="sgd":
-        model.optimizer = optim.SGD(model.optim_list)
+        model.optimizer = optim.SGD(model.optim_list, momentum = model.momentum)
     else:
         raise ValueError("Unrecognized optimizer, '{}' is not currently a valid option".format(args.optimizer))
 
