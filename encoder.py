@@ -269,10 +269,11 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         if self.ncl and x_ is not None: #use NCL gradients
             for n, p in self.named_parameters():
                 if p.requires_grad:
-                    # Retrieve stored mode (MAP estimate) and precision (Fisher Information matrix)
+                    # Retrieve prior fisher matrix
                     n = n.replace('.', '__')
                     fisher = getattr(self, '{}_EWC_estimated_fisher{}'.format(n, "" if self.online else task))
-                    p.grad *= (fisher+self.alpha**2)**(-1)
+                    # Scale loss landscape by inverse prior fisher and divide learning rate by data size
+                    p.grad *= (fisher+self.alpha**2)**(-1)/data_size
 
 
         # Take optimization-step

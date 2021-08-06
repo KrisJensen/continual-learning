@@ -80,6 +80,7 @@ gen_params.add_argument('--lr-gen', type=float, help="learning rate generator (d
 # "memory allocation" parameters
 cl_params = parser.add_argument_group('Memory Allocation Parameters')
 cl_params.add_argument('--ewc', action='store_true', help="use 'EWC' (Kirkpatrick et al, 2017)")
+cl_params.add_argument('--ncl', action='store_true', help="use 'NCL' ")
 cl_params.add_argument('--lambda', type=float, dest="ewc_lambda", help="--> EWC: regularisation strength")
 cl_params.add_argument('--fisher-n', type=int, help="--> EWC: sample size estimating Fisher Information")
 cl_params.add_argument('--online', action='store_true', help="--> EWC: perform 'online EWC'")
@@ -221,7 +222,7 @@ def run(args, verbose=False):
             image_size=config['size'], image_channels=config['channels'], classes=config['classes'],
             fc_layers=args.fc_lay, fc_units=args.fc_units, fc_drop=args.fc_drop, fc_nl=args.fc_nl,
             fc_bn=True if args.fc_bn=="yes" else False, excit_buffer=True if args.xdg and args.gating_prop>0 else False,
-            binaryCE=args.bce, binaryCE_distill=args.bce_distill, AGEM=args.agem,
+            binaryCE=args.bce, binaryCE_distill=args.bce_distill, AGEM=args.agem, ncl=args.ncl
         ).to(device)
 
     # Define optimizer (only include parameters that "requires_grad")
