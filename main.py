@@ -91,13 +91,6 @@ cl_params.add_argument('--epsilon', type=float, default=0.1, dest="epsilon", hel
 cl_params.add_argument('--xdg', action='store_true', help="Use 'Context-dependent Gating' (Masse et al, 2018)")
 cl_params.add_argument('--gating-prop', type=float, metavar="PROP", help="--> XdG: prop neurons per layer to gate")
 
-# NCL parameters
-cl_params.add_argument('--ncl', action='store_true', help="use 'NCL' ")
-train_params.add_argument('--alpha', type=float, default = 1e-5, help="regularization alpha")
-train_params.add_argument('--data_size', type=float, default = 6000., help="prior data size")
-train_params.add_argument('--momentum', type=float, default = 0.9, help="momentum to use with SGD")
-
-
 # data storage ('exemplars') parameters
 store_params = parser.add_argument_group('Data Storage Parameters')
 store_params.add_argument('--icarl', action='store_true', help="bce-distill, use-exemplars & add-exemplars")
@@ -120,7 +113,11 @@ eval_params.add_argument('--prec-n', type=int, default=1024, help="# samples for
 eval_params.add_argument('--sample-log', type=int, default=500, metavar="N", help="# iters after which to plot samples")
 eval_params.add_argument('--sample-n', type=int, default=64, help="# images to show")
 
-
+# NCL parameters
+cl_params.add_argument('--ncl', action='store_true', help="use 'NCL' ")
+train_params.add_argument('--alpha', type=float, default = 1e-5, help="regularization alpha")
+train_params.add_argument('--data_size', type=float, default = 12000., help="prior data size")
+train_params.add_argument('--momentum', type=float, default = 0.9, help="momentum to use with SGD")
 
 def run(args, verbose=False):
 

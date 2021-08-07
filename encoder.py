@@ -51,6 +51,10 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         # classifier
         self.classifier = fc_layer(mlp_output_size, classes, excit_buffer=True, nl='none', drop=fc_drop)
 
+        self.initialize_fisher() #initialize fisher with prior
+        if self.ncl and self.online:
+            self.EWC_task_count = 1
+        
 
     def list_init_layers(self):
         '''Return list of modules whose parameters could be initialized differently (i.e., conv- or fc-layers).'''
@@ -266,15 +270,19 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                         index += n_param
                         
                         
-        if self.ncl and x_ is not None: #use NCL gradients
+                        
+        #### NCL gradients ####
+        if self.ncl: #use NCL gradients
             for n, p in self.named_parameters():
                 if p.requires_grad:
                     # Retrieve prior fisher matrix
                     n = n.replace('.', '__')
                     fisher = getattr(self, '{}_EWC_estimated_fisher{}'.format(n, "" if self.online else task))
                     # Scale loss landscape by inverse prior fisher and divide learning rate by data size
-                    p.grad *= (fisher+self.alpha**2)**(-1)/data_size
+                    p.grad *= (fisher+self.alpha**2)**(-1)/self.data_size
 
+                    
+                    
 
         # Take optimization-step
         self.optimizer.step()
