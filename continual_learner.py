@@ -80,7 +80,7 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
                 # -precision (approximated by diagonal Fisher Information matrix)
                 self.register_buffer('{}_EWC_estimated_fisher{}'.format(n, "" if self.online else self.EWC_task_count+1),
                                      torch.ones(p.shape)/self.data_size)
-                print('{}_EWC_estimated_fisher{}'.format(n, "" if self.online else self.EWC_task_count+1))
+                print('{}_EWC_estimated_fisher'.format(n))
 
     def estimate_fisher(self, dataset, allowed_classes=None, collate_fn=None):
         '''After completing training on a task, estimate diagonal of Fisher Information matrix.
@@ -151,6 +151,8 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
                     est_fisher_info[n] += self.gamma * existing_values
                 self.register_buffer('{}_EWC_estimated_fisher{}'.format(n, "" if self.online else self.EWC_task_count+1),
                                      est_fisher_info[n])
+                
+                print(np.mean(est_fisher_info[n].cpu().numpy()), np.std(est_fisher_info[n].cpu().numpy()))
 
         # If "offline EWC", increase task-count (for "online EWC", set it to 1 to indicate EWC-loss can be calculated)
         self.EWC_task_count = 1 if self.online else self.EWC_task_count + 1
