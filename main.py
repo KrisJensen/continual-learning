@@ -118,6 +118,7 @@ cl_params.add_argument('--ncl', action='store_true', help="use 'NCL' ")
 train_params.add_argument('--alpha', type=float, default = 1e-5, help="regularization alpha")
 train_params.add_argument('--data_size', type=float, default = 12000., help="prior data size")
 train_params.add_argument('--momentum', type=float, default = 0.9, help="momentum to use with SGD")
+train_params.add_argument('--power', type = int, default = 1, help = "raise the Fisher to some power?")
 
 def run(args, verbose=False):
 
@@ -229,7 +230,8 @@ def run(args, verbose=False):
             image_size=config['size'], image_channels=config['channels'], classes=config['classes'],
             fc_layers=args.fc_lay, fc_units=args.fc_units, fc_drop=args.fc_drop, fc_nl=args.fc_nl,
             fc_bn=True if args.fc_bn=="yes" else False, excit_buffer=True if args.xdg and args.gating_prop>0 else False,
-            binaryCE=args.bce, binaryCE_distill=args.bce_distill, AGEM=args.agem, ncl=args.ncl, data_size=args.data_size, alpha=args.alpha
+            binaryCE=args.bce, binaryCE_distill=args.bce_distill, AGEM=args.agem,
+            ncl=args.ncl, data_size=args.data_size, alpha=args.alpha, power = args.power
         ).to(device)
 
     # Define optimizer (only include parameters that "requires_grad")
