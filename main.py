@@ -80,7 +80,6 @@ gen_params.add_argument('--lr-gen', type=float, help="learning rate generator (d
 # "memory allocation" parameters
 cl_params = parser.add_argument_group('Memory Allocation Parameters')
 cl_params.add_argument('--ewc', action='store_true', help="use 'EWC' (Kirkpatrick et al, 2017)")
-cl_params.add_argument('--ncl', action='store_true', help="use 'NCL' ")
 cl_params.add_argument('--lambda', type=float, dest="ewc_lambda", help="--> EWC: regularisation strength")
 cl_params.add_argument('--fisher-n', type=int, help="--> EWC: sample size estimating Fisher Information")
 cl_params.add_argument('--online', action='store_true', help="--> EWC: perform 'online EWC'")
@@ -91,6 +90,13 @@ cl_params.add_argument('--c', type=float, dest="si_c", help="--> SI: regularisat
 cl_params.add_argument('--epsilon', type=float, default=0.1, dest="epsilon", help="--> SI: dampening parameter")
 cl_params.add_argument('--xdg', action='store_true', help="Use 'Context-dependent Gating' (Masse et al, 2018)")
 cl_params.add_argument('--gating-prop', type=float, metavar="PROP", help="--> XdG: prop neurons per layer to gate")
+
+# NCL parameters
+cl_params.add_argument('--ncl', action='store_true', help="use 'NCL' ")
+train_params.add_argument('--alpha', type=float, default = 1e-5, help="regularization alpha")
+train_params.add_argument('--data_size', type=float, default = 6000., help="prior data size")
+train_params.add_argument('--momentum', type=float, default = 0.9, help="momentum to use with SGD")
+
 
 # data storage ('exemplars') parameters
 store_params = parser.add_argument_group('Data Storage Parameters')
@@ -118,6 +124,10 @@ eval_params.add_argument('--sample-n', type=int, default=64, help="# images to s
 
 def run(args, verbose=False):
 
+    if args.ncl:
+        args.ewc = True
+        args.online = True
+    
     # Set default arguments & check for incompatible options
     args.lr_gen = args.lr if args.lr_gen is None else args.lr_gen
     args.g_iters = args.iters if args.g_iters is None else args.g_iters
@@ -222,7 +232,7 @@ def run(args, verbose=False):
             image_size=config['size'], image_channels=config['channels'], classes=config['classes'],
             fc_layers=args.fc_lay, fc_units=args.fc_units, fc_drop=args.fc_drop, fc_nl=args.fc_nl,
             fc_bn=True if args.fc_bn=="yes" else False, excit_buffer=True if args.xdg and args.gating_prop>0 else False,
-            binaryCE=args.bce, binaryCE_distill=args.bce_distill, AGEM=args.agem, ncl=args.ncl
+            binaryCE=args.bce, binaryCE_distill=args.bce_distill, AGEM=args.agem, ncl=args.ncl, data_size=args.data_size, alpha=args.alpha
         ).to(device)
 
     # Define optimizer (only include parameters that "requires_grad")
@@ -231,7 +241,7 @@ def run(args, verbose=False):
     if model.optim_type in ("adam", "adam_reset"):
         model.optimizer = optim.Adam(model.optim_list, betas=(0.9, 0.999))
     elif model.optim_type=="sgd":
-        model.optimizer = optim.SGD(model.optim_list, momentum = model.momentum)
+        model.optimizer = optim.SGD(model.optim_list, momentum = args.momentum)
     else:
         raise ValueError("Unrecognized optimizer, '{}' is not currently a valid option".format(args.optimizer))
 

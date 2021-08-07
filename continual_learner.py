@@ -31,7 +31,6 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
         self.emp_FI = False     #-> if True, use provided labels to calculate FI ("empirical FI"); else predicted labels
         self.EWC_task_count = 0 #-> keeps track of number of quadratic loss terms (for "offline EWC")
         
-        self.data_size = 10000 #data size is the inverse prior
         self.initialize_fisher() #initialize fisher with prior
 
     def _device(self):

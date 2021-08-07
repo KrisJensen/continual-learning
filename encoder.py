@@ -13,7 +13,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
     def __init__(self, image_size, image_channels, classes,
                  fc_layers=3, fc_units=1000, fc_drop=0, fc_bn=False, fc_nl="relu", gated=False,
                  bias=True, excitability=False, excit_buffer=False, binaryCE=False, binaryCE_distill=False, AGEM=False,
-                 ncl = False, momentum = 0.9, alpha = 1e-5):
+                 ncl = False, alpha = 1e-5, data_size = 6000.):
 
         # configurations
         super().__init__()
@@ -29,8 +29,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                           #   the gradient of the current data (as in A-GEM, see Chaudry et al., 2019; ICLR)
             
         self.ncl = ncl #whether to use the NCL algorithm
-        self.momentum = momentum #how much momentum to use with SGD
         self.alpha = alpha #alpha used to regularize the Fisher inversion
+        self.data_size = data_size #data size is the inverse prior
 
         # check whether there is at least 1 fc-layer
         if fc_layers<1:
