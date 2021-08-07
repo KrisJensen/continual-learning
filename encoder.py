@@ -278,8 +278,8 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                     # Retrieve prior fisher matrix
                     n = n.replace('.', '__')
                     fisher = getattr(self, '{}_EWC_estimated_fisher{}'.format(n, "" if self.online else task))
-                    if self.power > 1: #be more aggresive in the projection step?
-                        fisher = fisher ** self.power / np.mean(fisher ** (self.power-1))
+                    #if self.power > 1: #be more aggresive in the projection step?
+                    #    fisher = fisher ** self.power / torch.mean(fisher ** (self.power-1))
                     # Scale loss landscape by inverse prior fisher and divide learning rate by data size
                     scale = (fisher+self.alpha**2)**(-1)
                     p.grad *= scale #scale lr by inverse prior information
