@@ -297,17 +297,26 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
             est_fisher_info['classifier'] = initialize_for_fcLayer(classifier)
             return est_fisher_info
 
-        def update_fisher_info_layer(est_fisher_info, label, layer, n_samples):
+        def update_fisher_info_layer(est_fisher_info, intermediate, label,
+                                     layer, n_samples):
             if not isinstance(layer, fc_layer):
                 raise NotImplemented
             if layer.phantom is None:
                 raise Exception(f'Layer {label} phantom is None')
             g = layer.phantom.grad.detach()
             G = g[..., None] @ g[..., None, :]
-            _a = pre_activations[label].detach()
+            _a = intermediate[label].detach()
             # Here we do one batch at a time (not ideal)
             assert (_a.shape[0] == 1)
             a = _a[0]
+
+            # check that we get the right gradients this way 
+            #def check():
+            #    _weight_grad = g.outer(a)
+            #    weight_grad = layer.linear.weight.grad
+            #    return torch.allclose(weight_grad, _weight_grad)
+
+            #assert check()
 
             if classifier.bias is None:
                 abar = a
@@ -320,14 +329,14 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
             est_fisher_info[label]['A'] = Ao + A / n_samples
             est_fisher_info[label]['G'] = Go + G / n_samples
 
-        def update_fisher_info(est_fisher_info, n_samples):
+        def update_fisher_info(est_fisher_info, intermediate, n_samples):
             for i in range(1, fcE.layers + 1):
                 label = f"fcLayer{i}"
                 layer = getattr(fcE, label)
-                update_fisher_info_layer(est_fisher_info, label, layer,
-                                         n_samples)
-            update_fisher_info_layer(est_fisher_info, 'classifier',
-                                     self.classifier, n_samples)
+                update_fisher_info_layer(est_fisher_info, intermediate, label,
+                                         layer, n_samples)
+            update_fisher_info_layer(est_fisher_info, intermediate,
+                                     'classifier', self.classifier, n_samples)
 
         # initialize estimated fisher info
         est_fisher_info = initialize()
@@ -353,9 +362,9 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
             # run forward pass of model
             x = x.to(self._device())
             if allowed_classes is None:
-                output, pre_activations = self(x, return_pa=True)
+                output, intermediate = self(x, return_intermediate=True)
             else:
-                _output, pre_activations = self(x, return_pa=True)
+                _output, intermediate = self(x, return_intermediate=True)
                 output = _output[:, allowed_classes]
             if self.emp_FI:
                 raise NotImplemented
@@ -371,7 +380,7 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
             # Calculate gradient of negative loglikelihood
             self.zero_grad()
             negloglikelihood.backward()
-            update_fisher_info(est_fisher_info, n_samples)
+            update_fisher_info(est_fisher_info, intermediate, n_samples)
 
         for label in est_fisher_info:
             # TODO: cook up crazy sum here

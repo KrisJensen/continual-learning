@@ -25,6 +25,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                  binaryCE=False,
                  binaryCE_distill=False,
                  AGEM=False,
+                 ewc=False,
                  ncl=False,
                  kfncl=False,
                  alpha=1e-5,
@@ -46,8 +47,9 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
         self.ncl = ncl  #whether to use the NCL algorithm
         self.kfncl = kfncl  #whether to use the KFNCL algorithm
-        if (ncl + kfncl > 1):
-            raise ValueError('Only one of ncl or kfncl can be True')
+        self.ewc = ewc
+        if (ncl + kfncl + ewc > 1):
+            raise ValueError('Only one of ncl, kfncl, or ewc can be True')
         self.alpha = alpha  #alpha used to regularize the Fisher inversion
         self.data_size = data_size  #data size is the inverse prior
         self.power = power
@@ -103,22 +105,17 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
     def name(self):
         return "{}_c{}".format(self.fcE.name, self.classes)
 
-    def forward(self, x, return_pa=False):
-        if not return_pa:
+    def forward(self, x, return_intermediate=False):
+        if not return_intermediate:
             final_features = self.fcE(self.flatten(x))
             return self.classifier(final_features)
         else:
             flatten_x = self.flatten(x)
-            final_features, pas = self.fcE(flatten_x, return_pa=return_pa)
+            final_features, intermediate = self.fcE(
+                flatten_x, return_intermediate=return_intermediate)
+            intermediate['classifier'] = final_features
             out = self.classifier(final_features)
-            assert len(pas) == self.fcE.layers
-            pre_activations = {
-                'fcLayer1': flatten_x,
-            }
-            for i in range(2, self.fcE.layers + 1):
-                pre_activations[f'fcLayer{i}'] = pas[i - 1]
-            pre_activations['classifier'] = pas[-1]
-            return out, pre_activations
+            return out, intermediate
 
     def feature_extractor(self, images):
         return self.fcE(self.flatten(images))
