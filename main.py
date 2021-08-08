@@ -185,6 +185,7 @@ cl_params.add_argument('--online',
 cl_params.add_argument(
     '--gamma',
     type=float,
+    default=1.0,
     help="--> EWC: forgetting coefficient (for 'online EWC')")
 cl_params.add_argument('--emp-fi',
                        action='store_true',

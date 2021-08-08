@@ -175,10 +175,10 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
                 label = label.to(self._device())
             else:
                 # -use predicted label to calculate loglikelihood:
-                label = output.argmax(1)
+                #label = output.argmax(1)
                 # TODO: needs fixing
-                #dist = Categorical(logits=F.log_softmax(output, dim=1))
-                #label = dist.sample().detach()  # do not differentiate through
+                dist = Categorical(logits=F.log_softmax(output, dim=1))
+                label = dist.sample().detach()  # do not differentiate through
 
             # calculate negative log-likelihood
             negloglikelihood = F.nll_loss(F.log_softmax(output, dim=1), label)
@@ -374,9 +374,9 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
                 raise NotImplemented
             else:
                 # -use predicted label to calculate loglikelihood:
-                label = output.argmax(1)
-                #dist = Categorical(logits=F.log_softmax(output, dim=1))
-                #label = dist.sample().detach()  # do not differentiate through
+#                 label = output.argmax(1)
+                dist = Categorical(logits=F.log_softmax(output, dim=1))
+                label = dist.sample().detach()  # do not differentiate through
 
             # calculate negative log-likelihood
             negloglikelihood = F.nll_loss(F.log_softmax(output, dim=1), label)
@@ -387,9 +387,9 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
             update_fisher_info(est_fisher_info, intermediate, n_samples)
 
         for label in est_fisher_info:
-            An = self.gamma * est_fisher_info[label]['A'].to(self._device()) #new kronecker factor
-            Gn = self.gamma * est_fisher_info[label]['G'].to(self._device())
-            Ao = self.KFAC_FISHER_INFO[label]['A'].to(self._device()) #old kronecker factor
+            An = est_fisher_info[label]['A'].to(self._device()) #new kronecker factor
+            Gn = est_fisher_info[label]['G'].to(self._device())
+            Ao = self.gamma * self.KFAC_FISHER_INFO[label]['A'].to(self._device()) #old kronecker factor
             Go = self.KFAC_FISHER_INFO[label]['G'].to(self._device()) #old kronecker factor
 
             As, Gs = utils.additive_nearest_kf({'A': Ao, 'G': Go}, {'A': An, 'G': Gn}) #sum of kronecker factors

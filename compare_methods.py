@@ -215,6 +215,7 @@ if __name__ == '__main__':
     
     ## ncl kfac ##
     args.lr = 5e-4
+    #args.lr = 1e-3
     args.kfncl = True
     KFNCL = {}
     KFNCL = collect_all(KFNCL, seed_list, args, name="KFNCL")
