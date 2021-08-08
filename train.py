@@ -352,7 +352,7 @@ def train_cl(model,
             progress_gen.close()
 
         # EWC: estimate Fisher Information matrix (FIM) and update term for quadratic penalty
-        if isinstance(model, ContinualLearner) and (model.ewc_lambda > 0):
+        if isinstance(model, ContinualLearner) and (model.ewc or model.ncl):
             # -find allowed classes
             allowed_classes = list(
                 range(classes_per_task * (task - 1), classes_per_task *

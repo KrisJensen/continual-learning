@@ -234,19 +234,17 @@ class MLP(nn.Module):
         if self.layers < 1:
             self.noLayers = utils.Identity()
 
-    def forward(self, x, return_pa=False):
-        if not return_pa:
+    def forward(self, x, return_intermediate=False):
+        if not return_intermediate:
             for lay_id in range(1, self.layers + 1):
-                x = getattr(self,
-                            'fcLayer{}'.format(lay_id))(x, return_pa=return_pa)
+                x = getattr(self, 'fcLayer{}'.format(lay_id))(x)
             return x
         else:
-            pas = []
+            intermediate = {}
             for lay_id in range(1, self.layers + 1):
-                x, pa = getattr(self, 'fcLayer{}'.format(lay_id))(
-                    x, return_pa=return_pa)
-                pas.append(pa)
-            return x, pas
+                intermediate[f'fcLayer{lay_id}'] = x
+                x = getattr(self, 'fcLayer{}'.format(lay_id))(x)
+            return x, intermediate
 
     @property
     def name(self):

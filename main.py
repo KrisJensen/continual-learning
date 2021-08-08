@@ -300,10 +300,6 @@ train_params.add_argument('--power',
 
 def run(args, verbose=False):
 
-    if args.ncl or args.kfncl:
-        args.ewc = True
-        args.online = True
-
     # Set default arguments & check for incompatible options
     args.lr_gen = args.lr if args.lr_gen is None else args.lr_gen
     args.g_iters = args.iters if args.g_iters is None else args.g_iters
@@ -439,6 +435,7 @@ def run(args, verbose=False):
             binaryCE=args.bce,
             binaryCE_distill=args.bce_distill,
             AGEM=args.agem,
+            ewc=args.ewc,
             ncl=args.ncl,
             kfncl=args.kfncl,
             data_size=args.data_size,
@@ -490,6 +487,8 @@ def run(args, verbose=False):
             model.gamma = args.gamma
             model.online = args.online
             model.emp_FI = args.emp_fi
+        if args.ncl or args.kfncl:
+            model.online = True
 
     # Synpatic Intelligence (SI)
     if isinstance(model, ContinualLearner):

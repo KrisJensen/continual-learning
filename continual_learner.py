@@ -75,18 +75,17 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
     def initialize_fisher(self):
         # initialize fisher matrix with the prior precision (c.f. NCL)
         print('initializing fisher', self.EWC_task_count)
+        assert self.online
         for n, p in self.named_parameters():
             if p.requires_grad:
                 n = n.replace('.', '__')
-                # -mode (=MAP parameter estimate)
+                # -take initial parameters as zero for regularization purposes
                 self.register_buffer(
-                    '{}_EWC_prev_task{}'.format(
-                        n, "" if self.online else self.EWC_task_count + 1),
-                    p.detach().clone())
+                    '{}_EWC_prev_task'.format(n),
+                    p.detach().clone()*0)
                 # -precision (approximated by diagonal Fisher Information matrix)
                 self.register_buffer(
-                    '{}_EWC_estimated_fisher{}'.format(
-                        n, "" if self.online else self.EWC_task_count + 1),
+                    '{}_EWC_estimated_fisher'.format(n),
                     torch.ones(p.shape) / self.data_size)
                 print('{}_EWC_estimated_fisher'.format(n))
 
@@ -118,7 +117,7 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
                 bias = None
             else:
                 bias = linear.bias.data
-            return {'A': A, 'G': G, 'weight': linear.weight.data, 'bias': bias}
+            return {'A': A, 'G': G, 'weight': linear.weight.data*0, 'bias': bias*0}
 
         def initialize():
             est_fisher_info = {}
@@ -179,7 +178,7 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
                 label = output.argmax(1)
                 # TODO: needs fixing
                 #dist = Categorical(logits=F.log_softmax(output, dim=1))
-                #6label = dist.sample().detach()  # do not differentiate through
+                #label = dist.sample().detach()  # do not differentiate through
 
             # calculate negative log-likelihood
             negloglikelihood = F.nll_loss(F.log_softmax(output, dim=1), label)
@@ -254,7 +253,7 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
                              dataset,
                              allowed_classes=None,
                              collate_fn=None):
-        '''After completing training on a task, estimate FKAC Fisher Information matrix.
+        '''After completing training on a task, estimate KFAC Fisher Information matrix.
 
         [dataset]:          <DataSet> to be used to estimate FI-matrix
         [allowed_classes]:  <list> with class-indeces of 'allowed' or 'active' classes'''
@@ -285,8 +284,13 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
             if linear.bias is None:
                 bias = None
             else:
-                bias = linear.bias.data
-            return {'A': A, 'G': G, 'weight': linear.weight.data, 'bias': bias}
+                bias = linear.bias.data.clone()
+            return {
+                'A': A,
+                'G': G,
+                'weight': linear.weight.data.clone(),
+                'bias': bias
+            }
 
         def initialize():
             est_fisher_info = {}
@@ -297,17 +301,26 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
             est_fisher_info['classifier'] = initialize_for_fcLayer(classifier)
             return est_fisher_info
 
-        def update_fisher_info_layer(est_fisher_info, label, layer, n_samples):
+        def update_fisher_info_layer(est_fisher_info, intermediate, label,
+                                     layer, n_samples):
             if not isinstance(layer, fc_layer):
                 raise NotImplemented
             if layer.phantom is None:
                 raise Exception(f'Layer {label} phantom is None')
             g = layer.phantom.grad.detach()
             G = g[..., None] @ g[..., None, :]
-            _a = pre_activations[label].detach()
+            _a = intermediate[label].detach()
             # Here we do one batch at a time (not ideal)
             assert (_a.shape[0] == 1)
             a = _a[0]
+
+            # check that we get the right gradients this way
+            #def check():
+            #    _weight_grad = g.outer(a)
+            #    weight_grad = layer.linear.weight.grad
+            #    return torch.allclose(weight_grad, _weight_grad)
+
+            #assert check()
 
             if classifier.bias is None:
                 abar = a
@@ -320,14 +333,14 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
             est_fisher_info[label]['A'] = Ao + A / n_samples
             est_fisher_info[label]['G'] = Go + G / n_samples
 
-        def update_fisher_info(est_fisher_info, n_samples):
+        def update_fisher_info(est_fisher_info, intermediate, n_samples):
             for i in range(1, fcE.layers + 1):
                 label = f"fcLayer{i}"
                 layer = getattr(fcE, label)
-                update_fisher_info_layer(est_fisher_info, label, layer,
-                                         n_samples)
-            update_fisher_info_layer(est_fisher_info, 'classifier',
-                                     self.classifier, n_samples)
+                update_fisher_info_layer(est_fisher_info, intermediate, label,
+                                         layer, n_samples)
+            update_fisher_info_layer(est_fisher_info, intermediate,
+                                     'classifier', self.classifier, n_samples)
 
         # initialize estimated fisher info
         est_fisher_info = initialize()
@@ -353,9 +366,9 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
             # run forward pass of model
             x = x.to(self._device())
             if allowed_classes is None:
-                output, pre_activations = self(x, return_pa=True)
+                output, intermediate = self(x, return_intermediate=True)
             else:
-                _output, pre_activations = self(x, return_pa=True)
+                _output, intermediate = self(x, return_intermediate=True)
                 output = _output[:, allowed_classes]
             if self.emp_FI:
                 raise NotImplemented
@@ -371,14 +384,23 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
             # Calculate gradient of negative loglikelihood
             self.zero_grad()
             negloglikelihood.backward()
-            update_fisher_info(est_fisher_info, n_samples)
+            update_fisher_info(est_fisher_info, intermediate, n_samples)
 
         for label in est_fisher_info:
-            # TODO: cook up crazy sum here
-            for k in ['A', 'G']:
-                o = self.KFAC_FISHER_INFO[label][k].to(self._device())
-                n = est_fisher_info[label][k].to(self._device())
-                self.KFAC_FISHER_INFO[label][k] = o + self.gamma * n
+            An = self.gamma * est_fisher_info[label]['A'].to(self._device()) #new kronecker factor
+            Gn = self.gamma * est_fisher_info[label]['G'].to(self._device())
+            Ao = self.KFAC_FISHER_INFO[label]['A'].to(self._device()) #old kronecker factor
+            Go = self.KFAC_FISHER_INFO[label]['G'].to(self._device()) #old kronecker factor
+
+            As, Gs = utils.additive_nearest_kf({'A': Ao, 'G': Go}, {'A': An, 'G': Gn}) #sum of kronecker factors
+            self.KFAC_FISHER_INFO[label]['A'] = As
+            self.KFAC_FISHER_INFO[label]['G'] = Gs
+            
+#             # TODO: cook up crazy sum here
+#             for k in ['A', 'G']:
+#                 o = self.KFAC_FISHER_INFO[label][k].to(self._device())
+#                 n = est_fisher_info[label][k].to(self._device())
+#                 self.KFAC_FISHER_INFO[label][k] = o + self.gamma * n
             for param_name in ['weight', 'bias']:
                 p = est_fisher_info[label][param_name].to(self._device())
                 self.KFAC_FISHER_INFO[label][param_name] = p

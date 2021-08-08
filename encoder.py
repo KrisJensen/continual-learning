@@ -25,6 +25,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                  binaryCE=False,
                  binaryCE_distill=False,
                  AGEM=False,
+                 ewc=False,
                  ncl=False,
                  kfncl=False,
                  alpha=1e-5,
@@ -46,8 +47,9 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
         self.ncl = ncl  #whether to use the NCL algorithm
         self.kfncl = kfncl  #whether to use the KFNCL algorithm
-        if (ncl + kfncl > 1):
-            raise ValueError('Only one of ncl or kfncl can be True')
+        self.ewc = ewc
+        if (ncl + kfncl + ewc > 1):
+            raise ValueError('Only one of ncl, kfncl, or ewc can be True')
         self.alpha = alpha  #alpha used to regularize the Fisher inversion
         self.data_size = data_size  #data size is the inverse prior
         self.power = power
@@ -103,22 +105,17 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
     def name(self):
         return "{}_c{}".format(self.fcE.name, self.classes)
 
-    def forward(self, x, return_pa=False):
-        if not return_pa:
+    def forward(self, x, return_intermediate=False):
+        if not return_intermediate:
             final_features = self.fcE(self.flatten(x))
             return self.classifier(final_features)
         else:
             flatten_x = self.flatten(x)
-            final_features, pas = self.fcE(flatten_x, return_pa=return_pa)
+            final_features, intermediate = self.fcE(
+                flatten_x, return_intermediate=return_intermediate)
+            intermediate['classifier'] = final_features
             out = self.classifier(final_features)
-            assert len(pas) == self.fcE.layers
-            pre_activations = {
-                'fcLayer1': flatten_x,
-            }
-            for i in range(2, self.fcE.layers + 1):
-                pre_activations[f'fcLayer{i}'] = pas[i - 1]
-            pre_activations['classifier'] = pas[-1]
-            return out, pre_activations
+            return out, intermediate
 
     def feature_extractor(self, images):
         return self.fcE(self.flatten(images))
@@ -350,7 +347,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                         index += n_param
 
         #### NCL gradients ####
-        if self.ncl:  #use NCL gradients
+        if self.ncl:  #if using ncl, scale gradients by inverse Fisher
             for n, p in self.named_parameters():
                 if p.requires_grad:
                     # Retrieve prior fisher matrix
@@ -358,15 +355,13 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                     fisher = getattr(
                         self, '{}_EWC_estimated_fisher{}'.format(
                             n, "" if self.online else task))
-                    #if self.power > 1: #be more aggresive in the projection step?
-                    #    fisher = fisher ** self.power / torch.mean(fisher ** (self.power-1))
                     # Scale loss landscape by inverse prior fisher and divide learning rate by data size
                     scale = (fisher + self.alpha**2)**(-1)
                     p.grad *= scale  #scale lr by inverse prior information
                     p.grad /= self.data_size  #scale learning rate by prior (necessary for stability in first task)
 
         #### KF NCL gradients ####
-        if self.kfncl:  #use NCL gradients
+        if self.kfncl:  #if using NCL with KFAC, scale gradients by inverse Fisher kronecker factors
             if not self.online:
                 raise NotImplemented
             if not hasattr(self, 'fcE'):
@@ -386,17 +381,22 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 linear = layer.linear
                 if linear.bias is not None:
                     g = torch.cat(
-                        (linear.weight.grad, linear.bias.grad[..., None]), -1)
+                        (linear.weight.grad, linear.bias.grad[..., None]), -1).clone()
                 else:
-                    g = layer.linear.weight.grad
+                    g = layer.linear.weight.grad.clone()
 
                 assert (g.shape[-1] == A.shape[-1])
                 assert (g.shape[-2] == G.shape[-2])
-                iA = torch.eye(A.shape[0]).to(self._device()) * (self.alpha**2)
-                iG = torch.eye(G.shape[0]).to(self._device()) * (self.alpha**2)
+                iA = torch.eye(A.shape[0]).to(self._device()) * (self.alpha)
+                iG = torch.eye(G.shape[0]).to(self._device()) * (self.alpha)
+                
+                As, Gs = utils.additive_nearest_kf({'A': A, 'G': G}, {'A': iA, 'G': iG}) #kronecker sums
+                Ainv = torch.inverse(As)
+                Ginv = torch.inverse(Gs)
+                
                 # TODO: implement proper eigen decomposition thing
-                Ainv = torch.inverse(A + iA)
-                Ginv = torch.inverse(G + iG)
+#                 Ainv = torch.inverse(A + iA)
+#                 Ginv = torch.inverse(G + iG)
                 scaled_g = Ginv @ g @ Ainv
                 if linear.bias is not None:
                     linear.weight.grad = scaled_g[

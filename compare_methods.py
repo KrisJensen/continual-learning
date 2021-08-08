@@ -196,6 +196,34 @@ if __name__ == '__main__':
     NONE = collect_all(NONE, seed_list, args, name="None")
 
     ###----"REGULARIZATION"----####
+    
+    ## NCL ##
+    old_lambda = args.ewc_lambda
+    old_lr = args.lr
+    args.ncl = True
+    args.online = True
+    args.ewc_lambda = 1
+    args.alpha = 1e-10
+    args.gamma = 1.
+    args.optimizer = 'sgd'
+    args.momentum = 0.9
+    args.data_size = 12000
+    args.lr=0.005
+    NCL = {}
+    NCL = collect_all(NCL, seed_list, args, name="NCL")
+    args.ncl = False
+    
+    ## ncl kfac ##
+    args.lr = 5e-4
+    args.kfncl = True
+    KFNCL = {}
+    KFNCL = collect_all(KFNCL, seed_list, args, name="KFNCL")
+    args.online = False
+    args.kfncl = False
+    args.optimizer='adam'
+    args.lr = old_lr
+    args.ewc_lambda = old_lambda
+
 
     ## SI
     args.si = True
@@ -214,27 +242,6 @@ if __name__ == '__main__':
     OEWC = {}
     OEWC = collect_all(OEWC, seed_list, args, name="Online EWC")
     
-    ## NCL ##
-    args.ncl = True
-    args.ewc_lambda = 1
-    args.alpha = 1e-10
-    args.gamma = 1.
-    args.optimizer = 'sgd'
-    args.momentum = 0.9
-    args.data_size = 12000
-    args.lr=0.005
-    NCL = {}
-    NCL = collect_all(NCL, seed_list, args, name="NCL")
-    args.ewc = False
-    
-    
-    ## ncl kfac ##
-    args.lr 5e-4
-    KFNCL = {}
-    KFNCL = collect_all(KFNCL, seed_list, args, name="KFNCL")
-    args.online = False
-    args.ncl = False
-
 
     #-------------------------------------------------------------------------------------------------#
 
@@ -261,22 +268,22 @@ if __name__ == '__main__':
     ## For each seed, create list with average metrics
     for seed in seed_list:
         ## AVERAGE TEST ACCURACY
-        ave_prec[seed] = [NONE[seed][1], OFF[seed][1], EWC[seed][1], OEWC[seed][1], SI[seed][1], NCL[seed][1]]
+        ave_prec[seed] = [NONE[seed][1], OFF[seed][1], EWC[seed][1], OEWC[seed][1], SI[seed][1], NCL[seed][1], KFNCL[seed][1]]
         # -for plot of average accuracy throughout training
         key = "average"
-        prec[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key], NCL[seed][0][key]]
+        prec[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key], NCL[seed][0][key], KFNCL[seed][0][key]]
 
         ## BACKWARD TRANSFER (BWT)
         key = 'BWT'
-        ave_BWT[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key], NCL[seed][0][key]]
+        ave_BWT[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key], NCL[seed][0][key], KFNCL[seed][0][key]]
 
         ## FORWARD TRANSFER (FWT)
         key = 'FWT'
-        ave_FWT[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key], NCL[seed][0][key]]
+        ave_FWT[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key], NCL[seed][0][key], KFNCL[seed][0][key]]
 
         ## FORGETTING (F)
         key = 'F'
-        ave_F[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key], NCL[seed][0][key]]
+        ave_F[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key], NCL[seed][0][key], KFNCL[seed][0][key]]
 
         ## INTRANSIGENCE (I)
         key = 'acc per task{}'.format(' (all classes up to evaluated task)' if args.scenario == "class" else '')
@@ -299,6 +306,9 @@ if __name__ == '__main__':
             np.mean([(
                 OFF[seed][0][key]['task {}'.format(i + 1)][i] - NCL[seed][0][key]['task {}'.format(i + 1)][i]
             ) for i in range(1, args.tasks)]),
+            np.mean([(
+                OFF[seed][0][key]['task {}'.format(i + 1)][i] - KFNCL[seed][0][key]['task {}'.format(i + 1)][i]
+            ) for i in range(1, args.tasks)]),
         ]
 
 
@@ -317,9 +327,9 @@ if __name__ == '__main__':
     names = ["None", "Offline"]
     colors = ["grey", "black"]
     ids = [0, 1]
-    names += ["EWC", "o-EWC", "SI", "NCL"]
-    colors += ["deepskyblue", "blue", "yellowgreen", "goldenrod"]
-    ids += [2,3,4,5]
+    names += ["EWC", "o-EWC", "SI", "NCL", "KFNCL"]
+    colors += ["deepskyblue", "blue", "yellowgreen", "goldenrod", "green"]
+    ids += [2,3,4,5,6]
 
     # open pdf
     pp = visual_plt.open_pdf("{}/{}.pdf".format(args.p_dir, plot_name))
