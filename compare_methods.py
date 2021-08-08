@@ -6,13 +6,15 @@ from param_stamp import get_param_stamp_from_args
 import visual_plt
 import main
 import utils
+import pickle
 from param_values import set_default_values
+from pathlib import Path
 
 
 description = 'Compare CL strategies using various metrics on each scenario of permuted or split MNIST.'
 parser = argparse.ArgumentParser('./compare_all.py', description=description)
 parser.add_argument('--seed', type=int, default=1, help='[first] random seed (for each random-module used)')
-parser.add_argument('--n-seeds', type=int, default=3, help='how often to repeat?')
+parser.add_argument('--n-seeds', type=int, default=1, help='how often to repeat?')
 parser.add_argument('--no-gpus', action='store_false', dest='cuda', help="don't use GPUs")
 parser.add_argument('--data-dir', type=str, default='./datasets', dest='d_dir', help="default: %(default)s")
 parser.add_argument('--plot-dir', type=str, default='./plots', dest='p_dir', help="default: %(default)s")
@@ -103,6 +105,10 @@ train_params.add_argument('--power',
                           type=int,
                           default=1,
                           help="raise the Fisher to some power?")
+train_params.add_argument('--cudanum',
+                         type = str,
+                         default='default',
+                         help="which cuda? (e.g. cuda:0)")
 
 def get_results(args):
     # -get param-stamp
@@ -112,7 +118,7 @@ def get_results(args):
         print("{}: already run".format(param_stamp))
     else:
         print("{}: ...running...".format(param_stamp))
-        main.run(args, verbose=True)
+        main.run(args, verbose=False)
     # -get results-dict
     dict = utils.load_object("{}/dict-{}".format(args.r_dir, param_stamp))
     # -get average precision
@@ -208,7 +214,7 @@ if __name__ == '__main__':
     args.optimizer = 'sgd'
     args.momentum = 0.9
     args.data_size = 12000
-    args.lr=0.005
+    args.lr=1e-3
     NCL = {}
     NCL = collect_all(NCL, seed_list, args, name="NCL")
     args.ncl = False
@@ -323,7 +329,7 @@ if __name__ == '__main__':
     plot_name = "summary-{}{}-{}".format(args.experiment, args.tasks, args.scenario)
     scheme = "{}-incremental learning".format(args.scenario)
     title = "{}  -  {}".format(args.experiment, scheme)
-
+    
     # select names / colors / ids
     names = ["None", "Offline"]
     colors = ["grey", "black"]
@@ -331,6 +337,14 @@ if __name__ == '__main__':
     names += ["EWC", "o-EWC", "SI", "NCL", "KFNCL"]
     colors += ["deepskyblue", "blue", "yellowgreen", "goldenrod", "green"]
     ids += [2,3,4,5,6]
+    
+    summ = {'prec': prec,
+           'ave_prec': ave_prec,
+           'names': names,
+           'ids': ids,
+           'seeds': seed_list}
+    Path("./ncl_results").mkdir(parents=True, exist_ok=True)
+    pickle.dump(summ, open('./ncl_results/'+plot_name+'_summary_seed_'+('_'.join([str(s) for s in seed_list]))+'.p', 'wb'))
 
     # open pdf
     pp = visual_plt.open_pdf("{}/{}.pdf".format(args.p_dir, plot_name))

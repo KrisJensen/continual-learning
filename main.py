@@ -297,7 +297,10 @@ train_params.add_argument('--power',
                           type=int,
                           default=1,
                           help="raise the Fisher to some power?")
-
+train_params.add_argument('--cudanum',
+                         type = str,
+                         default='default',
+                         help="which cuda? (e.g. cuda:0)")
 
 def run(args, verbose=False):
 
@@ -373,7 +376,14 @@ def run(args, verbose=False):
 
     # Use cuda?
     cuda = torch.cuda.is_available() and args.cuda
-    device = torch.device("cuda" if cuda else "cpu")
+    if cuda:
+        if 'cuda' in args.cudanum:
+            device = torch.device(args.cudanum)
+        else:
+            device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
+        
     if verbose:
         print("CUDA is {}used".format("" if cuda else "NOT(!!) "))
 
