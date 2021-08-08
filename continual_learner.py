@@ -373,19 +373,16 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
             negloglikelihood.backward()
             update_fisher_info(est_fisher_info, n_samples)
 
-        if self.KFAC_FISHER_INFO is None:
-            # TODO: show we be throwing an error here?!?!?
-            self.KFAC_FISHER_INFO = est_fisher_info
-        else:
-            for label in est_fisher_info:
-                # TODO: cook up crazy sum here
-                for k in ['A', 'G']:
-                    o = self.KFAC_FISHER_INFO[label][k].to(self._device())
-                    n = est_fisher_info[label][k].to(self._device())
-                    self.KFAC_FISHER_INFO[label][k] = o + self.gamma * n
-                for param_name in ['weight', 'bias']:
-                    p = est_fisher_info[label][param_name].to(self._device())
-                    self.KFAC_FISHER_INFO[label][param_name] = p
+
+        for label in est_fisher_info:
+            # TODO: cook up crazy sum here
+            for k in ['A', 'G']:
+                o = self.KFAC_FISHER_INFO[label][k].to(self._device())
+                n = est_fisher_info[label][k].to(self._device())
+                self.KFAC_FISHER_INFO[label][k] = o + self.gamma * n
+            for param_name in ['weight', 'bias']:
+                p = est_fisher_info[label][param_name].to(self._device())
+                self.KFAC_FISHER_INFO[label][param_name] = p
 
         self.EWC_task_count = 1
 
