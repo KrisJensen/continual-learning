@@ -12,7 +12,7 @@ from param_values import set_default_values
 description = 'Compare CL strategies using various metrics on each scenario of permuted or split MNIST.'
 parser = argparse.ArgumentParser('./compare_all.py', description=description)
 parser.add_argument('--seed', type=int, default=1, help='[first] random seed (for each random-module used)')
-parser.add_argument('--n-seeds', type=int, default=1, help='how often to repeat?')
+parser.add_argument('--n-seeds', type=int, default=3, help='how often to repeat?')
 parser.add_argument('--no-gpus', action='store_false', dest='cuda', help="don't use GPUs")
 parser.add_argument('--data-dir', type=str, default='./datasets', dest='d_dir', help="default: %(default)s")
 parser.add_argument('--plot-dir', type=str, default='./plots', dest='p_dir', help="default: %(default)s")
@@ -112,7 +112,7 @@ def get_results(args):
         print("{}: already run".format(param_stamp))
     else:
         print("{}: ...running...".format(param_stamp))
-        main.run(args)
+        main.run(args, verbose=True)
     # -get results-dict
     dict = utils.load_object("{}/dict-{}".format(args.r_dir, param_stamp))
     # -get average precision
@@ -217,15 +217,21 @@ if __name__ == '__main__':
     ## NCL ##
     args.ncl = True
     args.ewc_lambda = 1
-    args.alpha = 1e-5
+    args.alpha = 1e-10
     args.gamma = 1.
     args.optimizer = 'sgd'
     args.momentum = 0.9
-    args.data_size = 10000
+    args.data_size = 12000
     args.lr=0.005
     NCL = {}
     NCL = collect_all(NCL, seed_list, args, name="NCL")
     args.ewc = False
+    
+    
+    ## ncl kfac ##
+    args.lr 5e-4
+    KFNCL = {}
+    KFNCL = collect_all(KFNCL, seed_list, args, name="KFNCL")
     args.online = False
     args.ncl = False
 

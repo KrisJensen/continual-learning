@@ -300,7 +300,7 @@ train_params.add_argument('--power',
 
 def run(args, verbose=False):
 
-    if args.ncl:
+    if args.ncl or args.kfncl:
         args.ewc = True
         args.online = True
 
