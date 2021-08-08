@@ -285,8 +285,13 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
             if linear.bias is None:
                 bias = None
             else:
-                bias = linear.bias.data
-            return {'A': A, 'G': G, 'weight': linear.weight.data, 'bias': bias}
+                bias = linear.bias.data.clone()
+            return {
+                'A': A,
+                'G': G,
+                'weight': linear.weight.data.clone(),
+                'bias': bias
+            }
 
         def initialize():
             est_fisher_info = {}
@@ -310,7 +315,7 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
             assert (_a.shape[0] == 1)
             a = _a[0]
 
-            # check that we get the right gradients this way 
+            # check that we get the right gradients this way
             #def check():
             #    _weight_grad = g.outer(a)
             #    weight_grad = layer.linear.weight.grad

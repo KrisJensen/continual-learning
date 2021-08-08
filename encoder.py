@@ -383,9 +383,9 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 linear = layer.linear
                 if linear.bias is not None:
                     g = torch.cat(
-                        (linear.weight.grad, linear.bias.grad[..., None]), -1)
+                        (linear.weight.grad, linear.bias.grad[..., None]), -1).clone()
                 else:
-                    g = layer.linear.weight.grad
+                    g = layer.linear.weight.grad.clone()
 
                 assert (g.shape[-1] == A.shape[-1])
                 assert (g.shape[-2] == G.shape[-2])
