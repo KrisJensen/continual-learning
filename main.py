@@ -484,8 +484,8 @@ def run(args, verbose=False):
 
     # Elastic Weight Consolidation (EWC)
     if isinstance(model, ContinualLearner):
-        model.ewc_lambda = args.ewc_lambda if args.ewc else 0
-        if args.ewc:
+        model.ewc_lambda = args.ewc_lambda if args.ewc or args.ncl or args.kfncl else 0
+        if args.ewc or args.ncl or args.kfncl:
             model.fisher_n = args.fisher_n
             model.gamma = args.gamma
             model.online = args.online

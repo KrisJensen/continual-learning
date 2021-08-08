@@ -373,7 +373,6 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
             negloglikelihood.backward()
             update_fisher_info(est_fisher_info, n_samples)
 
-
         for label in est_fisher_info:
             # TODO: cook up crazy sum here
             for k in ['A', 'G']:
