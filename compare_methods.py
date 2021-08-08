@@ -222,7 +222,7 @@ if __name__ == '__main__':
     args.optimizer = 'sgd'
     args.momentum = 0.9
     args.data_size = 10000
-    arg.lr=0.005
+    args.lr=0.005
     NCL = {}
     NCL = collect_all(NCL, seed_list, args, name="NCL")
     args.ewc = False
