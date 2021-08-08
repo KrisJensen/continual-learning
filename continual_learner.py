@@ -112,8 +112,8 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
             linear = layer.linear
             g_dim, a_dim = linear.weight.shape
             abar_dim = a_dim + 1 if linear.bias is not None else a_dim
-            A = torch.eye(abar_dim) / self.data_size
-            G = torch.eye(g_dim) / self.data_size
+            A = torch.eye(abar_dim) / np.sqrt(self.data_size)
+            G = torch.eye(g_dim) / np.sqrt(self.data_size)
             if linear.bias is None:
                 bias = None
             else:

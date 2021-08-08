@@ -315,9 +315,9 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
         # Add EWC-loss
         ewc_loss = self.ewc_loss()
-        ewc_kfac_loss = self.ewc_kfac_loss()
         if self.ewc_lambda > 0: 
             if self.kfncl:
+                ewc_kfac_loss = self.ewc_kfac_loss()
                 loss_total += self.ewc_lambda * ewc_kfac_loss
             else:
                 loss_total += self.ewc_lambda * ewc_loss
@@ -393,17 +393,17 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
                 assert (g.shape[-1] == A.shape[-1])
                 assert (g.shape[-2] == G.shape[-2])
-                iA = torch.eye(A.shape[0]).to(self._device()) * self.alpha
-                iG = torch.eye(G.shape[0]).to(self._device()) * self.alpha
+                iA = torch.eye(A.shape[0]).to(self._device()) * (self.alpha ** 2)
+                iG = torch.eye(G.shape[0]).to(self._device()) * (self.alpha ** 2)
                 # TODO: implement proper eigen decomposition thing
                 Ainv = torch.inverse(A + iA)
                 Ginv = torch.inverse(G + iG)
                 scaled_g = Ginv @ g @ Ainv
                 if linear.bias is not None:
-                    linear.weight.grad = scaled_g[..., 0:-1].detach()
-                    linear.bias.grad = scaled_g[..., -1].detach()
+                    linear.weight.grad = scaled_g[..., 0:-1].detach() / self.data_size
+                    linear.bias.grad = scaled_g[..., -1].detach() / self.data_size
                 else:
-                    linear.weight.grad = scaled_g[..., 0:-1, :]
+                    linear.weight.grad = scaled_g[..., 0:-1, :] / self.data_size
 
                 # make sure to reset all phantom to have no zeros
                 if (layer.phantom is None):
