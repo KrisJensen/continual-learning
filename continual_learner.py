@@ -74,7 +74,7 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
 
     def initialize_fisher(self):
         # initialize fisher matrix with the prior precision (c.f. NCL)
-        print('initializing fisher', self.EWC_task_count)
+        #print('initializing fisher', self.EWC_task_count)
         assert self.online
         for n, p in self.named_parameters():
             if p.requires_grad:
@@ -87,7 +87,7 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
                 self.register_buffer(
                     '{}_EWC_estimated_fisher'.format(n),
                     torch.ones(p.shape) / self.data_size)
-                print('{}_EWC_estimated_fisher'.format(n))
+                #print('{}_EWC_estimated_fisher'.format(n))
 
     def initialize_kfac_fisher(self):
         if not self.online:

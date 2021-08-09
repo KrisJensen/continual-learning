@@ -12,6 +12,7 @@ from pathlib import Path
 
 
 description = 'Compare CL strategies using various metrics on each scenario of permuted or split MNIST.'
+#parser = argparse.ArgumentParser('./compare_all.py', description=description)
 parser = argparse.ArgumentParser('./compare_all.py', description=description)
 parser.add_argument('--seed', type=int, default=1, help='[first] random seed (for each random-module used)')
 parser.add_argument('--n-seeds', type=int, default=1, help='how often to repeat?')
@@ -44,7 +45,7 @@ model_params.add_argument('--singlehead', action='store_true', help="for Task-IL
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")
 train_params.add_argument('--lr', type=float, help="learning rate")
-train_params.add_argument('--batch', type=int, default=128, help="batch-size")
+train_params.add_argument('--batch', type=int, default=256, help="batch-size")
 train_params.add_argument('--optimizer', type=str, choices=['adam', 'adam_reset', 'sgd'], default='adam')
 
 # "memory replay" parameters
@@ -206,6 +207,7 @@ if __name__ == '__main__':
     ## NCL ##
     old_lambda = args.ewc_lambda
     old_lr = args.lr
+    old_gamma = args.gamma
     args.ncl = True
     args.online = True
     args.ewc_lambda = 1
@@ -214,13 +216,14 @@ if __name__ == '__main__':
     args.optimizer = 'sgd'
     args.momentum = 0.9
     args.data_size = 12000
-    args.lr=1e-3
+    #args.lr=5e-4
+    args.lr=5e-2 if args.experiment == 'splitMNIST' else 5e-2
     NCL = {}
     NCL = collect_all(NCL, seed_list, args, name="NCL")
     args.ncl = False
     
     ## ncl kfac ##
-    args.lr = 5e-4
+    #args.lr = 5e-4
     #args.lr = 1e-3
     args.kfncl = True
     KFNCL = {}
@@ -230,6 +233,7 @@ if __name__ == '__main__':
     args.optimizer='adam'
     args.lr = old_lr
     args.ewc_lambda = old_lambda
+    args.gamma = old_gamma
 
 
     ## SI

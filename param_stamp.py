@@ -86,6 +86,13 @@ def get_param_stamp(args, model_name, verbose=True, replay=False, replay_model_n
     ewc_stamp = "--{}{}{}".format(ewc_stamp, both, si_stamp) if (
         hasattr(args, 'ewc') and ((args.ewc_lambda>0 and args.ewc) or (args.si_c>0 and args.si))
     ) else ""
+    
+    if args.ncl:
+        ncl_stamp = "NCL"
+    elif args.kfncl:
+        ncl_stamp = "KFNCL"
+    else:
+        ncl_stamp = ""
 
     # -for XdG
     xdg_stamp = ""
@@ -124,8 +131,8 @@ def get_param_stamp(args, model_name, verbose=True, replay=False, replay_model_n
         binLoss_stamp = '--BCE_dist' if (args.bce_distill and args.scenario=="class") else '--BCE'
 
     # --> combine
-    param_stamp = "{}--{}--{}{}{}{}{}{}{}".format(
-        task_stamp, model_stamp, hyper_stamp, ewc_stamp, xdg_stamp, replay_stamp, exemplar_stamp, binLoss_stamp,
+    param_stamp = "{}--{}--{}{}{}{}{}{}{}{}".format(
+        task_stamp, model_stamp, hyper_stamp, ewc_stamp, ncl_stamp, xdg_stamp, replay_stamp, exemplar_stamp, binLoss_stamp,
         "-s{}".format(args.seed) if not args.seed==0 else "",
     )
 
