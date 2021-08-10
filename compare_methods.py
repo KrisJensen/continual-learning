@@ -217,7 +217,7 @@ if __name__ == '__main__':
     args.momentum = 0.9
     args.data_size = 12000
     #args.lr=5e-4
-    args.lr=5e-2 if args.experiment == 'splitMNIST' else 5e-2
+    args.lr=5e-3 if args.experiment == 'splitMNIST' else 5e-2
     NCL = {}
     NCL = collect_all(NCL, seed_list, args, name="NCL")
     args.ncl = False
@@ -226,6 +226,7 @@ if __name__ == '__main__':
     #args.lr = 5e-4
     #args.lr = 1e-3
     args.kfncl = True
+    args.lr=5e-2 if args.experiment == 'splitMNIST' else 5e-2
     KFNCL = {}
     KFNCL = collect_all(KFNCL, seed_list, args, name="KFNCL")
     args.online = False
