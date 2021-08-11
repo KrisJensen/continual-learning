@@ -28,9 +28,9 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                  ewc=False,
                  ncl=False,
                  kfncl=False,
-                 alpha=1e-5,
-                 data_size=6000.,
-                 power=1):
+                 ewc_kfac = False,
+                 alpha=1e-10,
+                 data_size=12000.):
 
         # configurations
         super().__init__()
@@ -48,11 +48,12 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
         self.ncl = ncl  #whether to use the NCL algorithm
         self.kfncl = kfncl  #whether to use the KFNCL algorithm
         self.ewc = ewc
-        if (ncl + kfncl + ewc > 1):
-            raise ValueError('Only one of ncl, kfncl, or ewc can be True')
+        self.ewc_kfac = ewc_kfac #whether to use KFAC
+        self.kfac = (kfncl or ewc_kfac) #work with kronecker factored Fishers for both these methods
+        if (ncl + kfncl + ewc + ewc_kfac > 1):
+            raise ValueError('Only one of ncl, kfncl, EWC KFAC, or ewc can be True')
         self.alpha = alpha  #alpha used to regularize the Fisher inversion
         self.data_size = data_size  #data size is the inverse prior
-        self.power = power
 
         # check whether there is at least 1 fc-layer
         if fc_layers < 1:
@@ -77,7 +78,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                        excitability=excitability,
                        excit_buffer=excit_buffer,
                        gated=gated,
-                       kfac=self.kfncl)
+                       kfac=self.kfac)
         mlp_output_size = fc_units if fc_layers > 1 else image_channels * image_size**2
 
         # classifier
@@ -86,13 +87,14 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                                    excit_buffer=True,
                                    nl='none',
                                    drop=fc_drop,
-                                   kfac=self.kfncl)
+                                   kfac=self.kfac)
+        
         if (self.ncl or self.kfncl) and self.online:
             self.EWC_task_count = 1  #no special treatment of first task
         if self.ncl:
-            self.initialize_fisher()  #initialize fisher with prior
-        if self.kfncl:
-            self.initialize_kfac_fisher()
+            self.initialize_fisher()  #initialize Fisher with prior
+        if self.kfac:
+            self.initialize_kfac_fisher() #initialize Fisher with prior
 
     def list_init_layers(self):
         '''Return list of modules whose parameters could be initialized differently (i.e., conv- or fc-layers).'''
@@ -311,14 +313,13 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             loss_total += self.si_c * surrogate_loss
 
         # Add EWC-loss
-        ewc_loss = self.ewc_loss()
+        if self.kfac: #kronecker factored fisher
+            ewc_loss = self.ewc_kfac_loss()
+        else: #diagonal fisher
+            ewc_loss = self.ewc_loss()
         if self.ewc_lambda > 0:
-            if self.kfncl:
-                ewc_kfac_loss = self.ewc_kfac_loss()
-                loss_total += self.ewc_lambda * ewc_kfac_loss
-            else:
-                loss_total += self.ewc_lambda * ewc_loss
-
+            loss_total += self.ewc_lambda * ewc_loss
+                
         # Backpropagate errors (if not yet done)
         if not gradient_per_task:
             loss_total.backward()
@@ -375,7 +376,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
             def scale_grad(label, layer):
                 assert (isinstance(layer, fc_layer))
-                info = self.KFAC_FISHER_INFO[label]
+                info = self.KFAC_FISHER_INFO[label] #get previous KFAC fisher
                 A = info['A'].to(self._device())
                 G = info['G'].to(self._device())
                 linear = layer.linear
@@ -394,9 +395,6 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                 Ainv = torch.inverse(As)
                 Ginv = torch.inverse(Gs)
                 
-                # TODO: implement proper eigen decomposition thing
-#                 Ainv = torch.inverse(A + iA)
-#                 Ginv = torch.inverse(G + iG)
                 scaled_g = Ginv @ g @ Ainv
                 if linear.bias is not None:
                     linear.weight.grad = scaled_g[

@@ -283,7 +283,7 @@ cl_params.add_argument('--ncl', action='store_true', help="use 'NCL' ")
 cl_params.add_argument('--kfncl', action='store_true', help="use 'KF NCL' ")
 train_params.add_argument('--alpha',
                           type=float,
-                          default=1e-5,
+                          default=1e-10,
                           help="regularization alpha")
 train_params.add_argument('--data_size',
                           type=float,
@@ -293,14 +293,13 @@ train_params.add_argument('--momentum',
                           type=float,
                           default=0.9,
                           help="momentum to use with SGD")
-train_params.add_argument('--power',
-                          type=int,
-                          default=1,
-                          help="raise the Fisher to some power?")
 train_params.add_argument('--cudanum',
                          type = str,
                          default='default',
                          help="which cuda? (e.g. cuda:0)")
+
+## KFAC parameters
+cl_params.add_argument('--ewc_kfac', action='store_true', help="use 'EWC with KFAC' (Ritter et al. 2018) ")
 
 def run(args, verbose=False):
 
@@ -449,9 +448,9 @@ def run(args, verbose=False):
             ewc=args.ewc,
             ncl=args.ncl,
             kfncl=args.kfncl,
+            ewc_kfac = args.ewc_kfac,
             data_size=args.data_size,
-            alpha=args.alpha,
-            power=args.power).to(device)
+            alpha=args.alpha).to(device)
 
     # Define optimizer (only include parameters that "requires_grad")
     model.optim_list = [{
@@ -492,13 +491,14 @@ def run(args, verbose=False):
 
     # Elastic Weight Consolidation (EWC)
     if isinstance(model, ContinualLearner):
-        model.ewc_lambda = args.ewc_lambda if args.ewc or args.ncl or args.kfncl else 0
-        if args.ewc or args.ncl or args.kfncl:
+        if (args.ewc or args.ncl or args.kfncl or args.ewc_kfac):
+            print('initializing ewc')
+            model.ewc_lambda = args.ewc_lambda
             model.fisher_n = args.fisher_n
             model.gamma = args.gamma
             model.online = args.online
             model.emp_FI = args.emp_fi
-        if args.ncl or args.kfncl:
+        if (args.ncl or args.kfncl or args.ewc_kfac):
             model.online = True
 
     # Synpatic Intelligence (SI)

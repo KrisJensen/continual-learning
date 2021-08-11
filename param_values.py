@@ -6,6 +6,12 @@ def set_default_values(args, also_hyper_params=True):
     args.lr = (0.001 if args.experiment=='splitMNIST' else 0.0001) if args.lr is None else args.lr
     args.fc_units = (400 if args.experiment=='splitMNIST' else 1000) if args.fc_units is None else args.fc_units
     if also_hyper_params:
+        
+        args.data_size = 12000
+        args.alpha = 1e-10
+        args.momentum = 0.9
+        args.kfncl_lr = 5e-2
+        
         if args.scenario=='task':
             args.gating_prop = (
                 0.95 if args.experiment == 'splitMNIST' else 0.55

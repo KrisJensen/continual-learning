@@ -87,10 +87,16 @@ def get_param_stamp(args, model_name, verbose=True, replay=False, replay_model_n
         hasattr(args, 'ewc') and ((args.ewc_lambda>0 and args.ewc) or (args.si_c>0 and args.si))
     ) else ""
     
+    
     if args.ncl:
         ncl_stamp = "NCL"
     elif args.kfncl:
         ncl_stamp = "KFNCL"
+    elif args.ewc_kfac:
+        ncl_stamp = "EWC_KFAC{l}-{o}".format(
+            l=args.ewc_lambda,
+            o="-O{}".format(args.gamma) if args.online else "",
+        )
     else:
         ncl_stamp = ""
 

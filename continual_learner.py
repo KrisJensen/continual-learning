@@ -70,11 +70,10 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
             excit_buffer.set_(
                 torchType.new(gating_mask))  # -> apply this unit mask
 
-    #----------------- EWC-specifc functions -----------------#
+    #----------------- EWC-specific functions -----------------#
 
     def initialize_fisher(self):
         # initialize fisher matrix with the prior precision (c.f. NCL)
-        #print('initializing fisher', self.EWC_task_count)
         assert self.online
         for n, p in self.named_parameters():
             if p.requires_grad:
@@ -87,9 +86,9 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
                 self.register_buffer(
                     '{}_EWC_estimated_fisher'.format(n),
                     torch.ones(p.shape) / self.data_size)
-                #print('{}_EWC_estimated_fisher'.format(n))
 
     def initialize_kfac_fisher(self):
+        # initialize Kronecker-factored Fisher matrix with the prior precision (c.f. NCL)
         if not self.online:
             raise NotImplemented
         if not hasattr(self, 'fcE'):
@@ -104,6 +103,11 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
         fcE = self.fcE
         assert fcE.kfac
         classifier = self.classifier
+        
+        if self.ewc_kfac: 
+            scale = 0 #use Ritter et al. method and initialize Fisher to zero
+        else:
+            scale = 1 #proper initialization
 
         def initialize_for_fcLayer(layer):
             if not isinstance(layer, fc_layer):
@@ -111,8 +115,8 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
             linear = layer.linear
             g_dim, a_dim = linear.weight.shape
             abar_dim = a_dim + 1 if linear.bias is not None else a_dim
-            A = torch.eye(abar_dim) / np.sqrt(self.data_size)
-            G = torch.eye(g_dim) / np.sqrt(self.data_size)
+            A = scale * torch.eye(abar_dim) / np.sqrt(self.data_size)
+            G = scale * torch.eye(g_dim) / np.sqrt(self.data_size)
             if linear.bias is None:
                 bias = None
             else:
@@ -174,9 +178,8 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
                     label = torch.LongTensor(label)
                 label = label.to(self._device())
             else:
-                # -use predicted label to calculate loglikelihood:
+                # -use predicted label to calculate loglikelihood (sample instead of argmax):
                 #label = output.argmax(1)
-                # TODO: needs fixing
                 dist = Categorical(logits=F.log_softmax(output, dim=1))
                 label = dist.sample().detach()  # do not differentiate through
 
@@ -208,7 +211,7 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
                     p.detach().clone())
                 # -precision (approximated by diagonal Fisher Information matrix)
                 if self.online and (self.EWC_task_count == 1
-                                    or self.ncl):  #start from prior in NCL
+                                    or self.ncl or self.kfncl):  #start from prior in NCL
                     existing_values = getattr(
                         self, '{}_EWC_estimated_fisher'.format(n))
                     est_fisher_info[n] += self.gamma * existing_values
@@ -396,11 +399,6 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
             self.KFAC_FISHER_INFO[label]['A'] = As
             self.KFAC_FISHER_INFO[label]['G'] = Gs
             
-#             # TODO: cook up crazy sum here
-#             for k in ['A', 'G']:
-#                 o = self.KFAC_FISHER_INFO[label][k].to(self._device())
-#                 n = est_fisher_info[label][k].to(self._device())
-#                 self.KFAC_FISHER_INFO[label][k] = o + self.gamma * n
             for param_name in ['weight', 'bias']:
                 p = est_fisher_info[label][param_name].to(self._device())
                 self.KFAC_FISHER_INFO[label][param_name] = p

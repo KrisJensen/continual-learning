@@ -201,8 +201,22 @@ if __name__ == '__main__':
     OEWC = {}
     OEWC = collect_all(OEWC, seed_list, args, name="Online EWC")
     args.ewc = False
+    
+    ## ncl kfac ##
+    old_lr = args.lr
+    args.kfncl = True
+    args.ewc_lambda = 1
+    args.gamma = 1.
+    args.optimizer = 'sgd'
+    args.lr=5e-2 args.kfncl_lr
+    KFNCL = {}
+    KFNCL = collect_all(KFNCL, seed_list, args, name="KFNCL")
     args.online = False
-
+    args.kfncl = False
+    args.optimizer='adam'
+    args.lr = old_lr
+    
+    
     ## SI
     args.si = True
     SI = {}
@@ -285,7 +299,7 @@ if __name__ == '__main__':
     ## For each seed, create list with average metrics
     for seed in seed_list:
         ## AVERAGE TEST ACCURACY
-        ave_prec[seed] = [NONE[seed][1], OFF[seed][1], EWC[seed][1], OEWC[seed][1], SI[seed][1], LWF[seed][1],
+        ave_prec[seed] = [NONE[seed][1], OFF[seed][1], EWC[seed][1], OEWC[seed][1], KFNCL[seed][1], SI[seed][1], LWF[seed][1],
                           RP[seed][1], RKD[seed][1], AGEM[seed][1], ER[seed][1]]
         if args.scenario=="task":
             ave_prec[seed].append(XDG[seed][1])
@@ -293,8 +307,9 @@ if __name__ == '__main__':
             ave_prec[seed].append(ICARL[seed][1])
         # -for plot of average accuracy throughout training
         key = "average"
-        prec[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
-                      LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key]]
+        prec[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key],
+                      KFNCL[seed][0][key], SI[seed][0][key], LWF[seed][0][key], RP[seed][0][key],
+                      RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key]]
         if args.scenario=="task":
             prec[seed].append(XDG[seed][0][key])
         elif args.scenario=="class":
@@ -302,7 +317,7 @@ if __name__ == '__main__':
 
         ## BACKWARD TRANSFER (BWT)
         key = 'BWT'
-        ave_BWT[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
+        ave_BWT[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], KFNCL[seed][0][key], SI[seed][0][key],
                          LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key]]
         if args.scenario=="task":
             ave_BWT[seed].append(XDG[seed][0][key])
@@ -311,7 +326,7 @@ if __name__ == '__main__':
 
         ## FORWARD TRANSFER (FWT)
         key = 'FWT'
-        ave_FWT[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
+        ave_FWT[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], KFNCL[seed][0][key], SI[seed][0][key],
                          LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key]]
         if args.scenario=="task":
             ave_FWT[seed].append(XDG[seed][0][key])
@@ -320,7 +335,7 @@ if __name__ == '__main__':
 
         ## FORGETTING (F)
         key = 'F'
-        ave_F[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], SI[seed][0][key],
+        ave_F[seed] = [NONE[seed][0][key], OFF[seed][0][key], EWC[seed][0][key], OEWC[seed][0][key], KFNCL[seed][0][key], SI[seed][0][key],
                        LWF[seed][0][key], RP[seed][0][key], RKD[seed][0][key], AGEM[seed][0][key], ER[seed][0][key]]
         if args.scenario=="task":
             ave_F[seed].append(XDG[seed][0][key])
@@ -341,6 +356,9 @@ if __name__ == '__main__':
             ) for i in range(1, args.tasks)]),
             np.mean([(
                 OFF[seed][0][key]['task {}'.format(i + 1)][i] - OEWC[seed][0][key]['task {}'.format(i + 1)][i]
+            ) for i in range(1, args.tasks)]),
+            np.mean([(
+                OFF[seed][0][key]['task {}'.format(i + 1)][i] - KFNCL[seed][0][key]['task {}'.format(i + 1)][i]
             ) for i in range(1, args.tasks)]),
             np.mean([(
                 OFF[seed][0][key]['task {}'.format(i + 1)][i] - SI[seed][0][key]['task {}'.format(i + 1)][i]
@@ -390,14 +408,14 @@ if __name__ == '__main__':
         names.append("XdG")
         colors.append("purple")
         ids.append(10)
-    names += ["EWC", "o-EWC", "SI", "LwF", "GR", "GR+distil", "ER (b={})".format(args.budget),
+    names += ["EWC", "o-EWC", "NCL", "SI", "LwF", "GR", "GR+distil", "ER (b={})".format(args.budget),
               "A-GEM (b={})".format(args.budget)]
-    colors += ["deepskyblue", "blue", "yellowgreen", "goldenrod", "indianred", "red", "darkblue", "brown"]
-    ids += [2,3,4,5,6,7,9,8]
+    colors += ["deepskyblue", "blue", "magenta", "yellowgreen", "goldenrod", "indianred", "red", "darkblue", "brown"]
+    ids += [2,3,4,5,6,7,8, 10, 9] #why does the order change at the end???
     if args.scenario=="class":
         names.append("iCaRL (b={})".format(args.budget))
         colors.append("violet")
-        ids.append(10)
+        ids.append(11)
 
     # open pdf
     pp = visual_plt.open_pdf("{}/{}.pdf".format(args.p_dir, plot_name))

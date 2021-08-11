@@ -43,6 +43,7 @@ class fc_layer(nn.Module):
 
         self.kfac = kfac
         if self.kfac:
+            print('initializing phantom')
             self.phantom = nn.Parameter(torch.zeros(out_size),
                                         requires_grad=True)
         else:

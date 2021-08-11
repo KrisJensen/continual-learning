@@ -367,7 +367,7 @@ def train_cl(model,
                                   allowed_classes=allowed_classes)
 
         # estimate kfac ncl
-        if isinstance(model, ContinualLearner) and (model.kfncl):
+        if isinstance(model, ContinualLearner) and (model.kfncl or model.kfac):
             # -find allowed classes
             allowed_classes = list(
                 range(classes_per_task * (task - 1), classes_per_task *
