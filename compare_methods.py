@@ -111,6 +111,9 @@ train_params.add_argument('--cudanum',
                          default='default',
                          help="which cuda? (e.g. cuda:0)")
 
+## KFAC parameters
+cl_params.add_argument('--ewc_kfac', action='store_true', help="use 'EWC with KFAC' (Ritter et al. 2018) ")
+
 def get_results(args):
     # -get param-stamp
     param_stamp = get_param_stamp_from_args(args)

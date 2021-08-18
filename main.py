@@ -107,7 +107,7 @@ train_params.add_argument('--iters',
                           type=int,
                           help="# batches to optimize solver")
 train_params.add_argument('--lr', type=float, help="learning rate")
-train_params.add_argument('--batch', type=int, default=128, help="batch-size")
+train_params.add_argument('--batch', type=int, default=256, help="batch-size")
 train_params.add_argument('--optimizer',
                           type=str,
                           choices=['adam', 'adam_reset', 'sgd'],
