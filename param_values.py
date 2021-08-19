@@ -25,6 +25,10 @@ def set_default_values(args, also_hyper_params=True):
                     100000000. if args.experiment == 'splitMNIST' else 500.
                 ) if args.o_lambda is None else args.o_lambda
             args.gamma = (0.8 if args.experiment == 'splitMNIST' else 0.8) if args.gamma is None else args.gamma
+            
+            if hasattr(args, 'kfac_lambda'):
+                args.kfac_lambda = (1e7 if args.experiment == 'splitMNIST' else 1e0) if args.kfac_lambda is None else args.kfac_lambda
+            
         elif args.scenario=='domain':
             args.si_c = (500. if args.experiment == 'splitMNIST' else 5.) if args.si_c is None else args.si_c
             args.ewc_lambda = (
@@ -35,6 +39,10 @@ def set_default_values(args, also_hyper_params=True):
                     100000000. if args.experiment == 'splitMNIST' else 1000.
                 ) if args.o_lambda is None else args.o_lambda
             args.gamma = (0.7 if args.experiment == 'splitMNIST' else 0.9) if args.gamma is None else args.gamma
+            
+            if hasattr(args, 'kfac_lambda'):
+                args.kfac_lambda = (1e6 if args.experiment == 'splitMNIST' else 1e0) if args.kfac_lambda is None else args.kfac_lambda
+            
         elif args.scenario=='class':
             args.si_c = (0.5 if args.experiment == 'splitMNIST' else 0.1) if args.si_c is None else args.si_c
             args.ewc_lambda = (
@@ -45,4 +53,8 @@ def set_default_values(args, also_hyper_params=True):
                     1000000000. if args.experiment == 'splitMNIST' else 5.
                 ) if args.o_lambda is None else args.o_lambda
             args.gamma = (0.8 if args.experiment == 'splitMNIST' else 1.) if args.gamma is None else args.gamma
+            
+            if hasattr(args, 'kfac_lambda'):
+                args.kfac_lambda = (1e5 if args.experiment == 'splitMNIST' else 1e0) if args.kfac_lambda is None else args.kfac_lambda
+            
     return args

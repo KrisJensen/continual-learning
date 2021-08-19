@@ -42,7 +42,7 @@ model_params.add_argument('--singlehead', action='store_true', help="for Task-IL
 train_params = parser.add_argument_group('Training Parameters')
 train_params.add_argument('--iters', type=int, help="# batches to optimize solver")
 train_params.add_argument('--lr', type=float, help="learning rate")
-train_params.add_argument('--batch', type=int, default=128, help="batch-size")
+train_params.add_argument('--batch', type=int, default=256, help="batch-size")
 train_params.add_argument('--optimizer', type=str, choices=['adam', 'adam_reset', 'sgd'], default='adam')
 
 # "memory replay" parameters
@@ -62,6 +62,7 @@ gen_params.add_argument('--lr-gen', type=float, help="learning rate generator (d
 cl_params = parser.add_argument_group('Memory Allocation Parameters')
 cl_params.add_argument('--lambda', type=float, dest="ewc_lambda", help="--> EWC: regularisation strength")
 cl_params.add_argument('--o-lambda', type=float, help="--> online EWC: regularisation strength")
+cl_params.add_argument('--kfac-lambda', type=float, help="--> online EWC: KFAC regularisation strength")
 cl_params.add_argument('--fisher-n', type=int, help="--> EWC: sample size estimating Fisher Information")
 cl_params.add_argument('--gamma', type=float, help="--> EWC: forgetting coefficient (for 'online EWC')")
 cl_params.add_argument('--emp-fi', action='store_true', help="--> EWC: estimate FI with provided labels")
@@ -84,6 +85,28 @@ eval_params.add_argument('--visdom', action='store_true', help="use visdom for o
 eval_params.add_argument('--prec-n', type=int, default=1024, help="# samples for evaluating solver's precision")
 eval_params.add_argument('--sample-n', type=int, default=64, help="# images to show")
 
+# NCL parameters
+cl_params.add_argument('--ncl', action='store_true', help="use 'NCL' ")
+cl_params.add_argument('--kfncl', action='store_true', help="use 'KF NCL' ")
+train_params.add_argument('--alpha',
+                          type=float,
+                          default=1e-10,
+                          help="regularization alpha")
+train_params.add_argument('--data_size',
+                          type=float,
+                          default=12000.,
+                          help="prior data size")
+train_params.add_argument('--momentum',
+                          type=float,
+                          default=0.9,
+                          help="momentum to use with SGD")
+train_params.add_argument('--cudanum',
+                         type = str,
+                         default='default',
+                         help="which cuda? (e.g. cuda:0)")
+
+## KFAC parameters
+cl_params.add_argument('--ewc_kfac', action='store_true', help="use 'EWC with KFAC' (Ritter et al. 2018) ")
 
 
 def get_results(args):
