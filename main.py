@@ -283,15 +283,12 @@ cl_params.add_argument('--ncl', action='store_true', help="use 'NCL' ")
 cl_params.add_argument('--kfncl', action='store_true', help="use 'KF NCL' ")
 train_params.add_argument('--alpha',
                           type=float,
-                          default=1e-10,
                           help="regularization alpha")
 train_params.add_argument('--data_size',
                           type=float,
-                          default=12000.,
                           help="prior data size")
 train_params.add_argument('--momentum',
                           type=float,
-                          default=0.9,
                           help="momentum to use with SGD")
 train_params.add_argument('--cudanum',
                          type = str,
@@ -300,6 +297,9 @@ train_params.add_argument('--cudanum',
 
 ## KFAC parameters
 cl_params.add_argument('--ewc_kfac', action='store_true', help="use 'EWC with KFAC' (Ritter et al. 2018) ")
+
+## projection parameters ##
+cl_params.add_argument('--owm', action='store_true', help="use orthogonal weight modification (Zeng et al. 2018) ")
 
 def run(args, verbose=False):
 
@@ -448,6 +448,7 @@ def run(args, verbose=False):
             ewc=args.ewc,
             ncl=args.ncl,
             kfncl=args.kfncl,
+            owm = args.owm,
             ewc_kfac = args.ewc_kfac,
             data_size=args.data_size,
             alpha=args.alpha).to(device)

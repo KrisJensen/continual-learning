@@ -1,5 +1,5 @@
 import data
-
+import numpy as np
 
 def get_param_stamp_from_args(args):
     '''To get param-stamp a bit quicker.'''
@@ -97,6 +97,8 @@ def get_param_stamp(args, model_name, verbose=True, replay=False, replay_model_n
             l=args.ewc_lambda,
             o="-O{}".format(args.gamma) if args.online else "",
         )
+    elif args.owm:
+        ncl_stamp = "OWM{}".format(np.log10(args.alpha))
     else:
         ncl_stamp = ""
 

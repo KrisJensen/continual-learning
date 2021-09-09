@@ -90,15 +90,12 @@ cl_params.add_argument('--ncl', action='store_true', help="use 'NCL' ")
 cl_params.add_argument('--kfncl', action='store_true', help="use 'KF NCL' ")
 train_params.add_argument('--alpha',
                           type=float,
-                          default=1e-10,
                           help="regularization alpha")
 train_params.add_argument('--data_size',
                           type=float,
-                          default=12000.,
                           help="prior data size")
 train_params.add_argument('--momentum',
                           type=float,
-                          default=0.9,
                           help="momentum to use with SGD")
 train_params.add_argument('--cudanum',
                          type = str,
@@ -225,13 +222,20 @@ if __name__ == '__main__':
     OEWC = collect_all(OEWC, seed_list, args, name="Online EWC")
     args.ewc = False
     
+    ## EWC KFAC ##
+    args.ewc_kfac = True
+    args.ewc_lambda = args.kfac_lambda
+    KEWC = {}
+    KEWC = collect_all(KEWC, seed_list, args, name="KFAC EWC")
+    args.ewc_kfac = False
+    
     ## ncl kfac ##
     old_lr = args.lr
     args.kfncl = True
     args.ewc_lambda = 1
     args.gamma = 1.
     args.optimizer = 'sgd'
-    args.lr=5e-2 args.kfncl_lr
+    args.lr = args.kfncl_lr
     KFNCL = {}
     KFNCL = collect_all(KFNCL, seed_list, args, name="KFNCL")
     args.online = False

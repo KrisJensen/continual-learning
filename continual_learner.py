@@ -228,7 +228,7 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
 
     def ewc_loss(self):
         '''Calculate EWC-loss.'''
-        if self.EWC_task_count > 0 and not self.kfncl:
+        if self.EWC_task_count > 0 and not self.owm:
             losses = []
             # If "offline EWC", loop over all previous tasks (if "online EWC", [EWC_task_count]=1 so only 1 iteration)
             for task in range(1, self.EWC_task_count + 1):
@@ -404,6 +404,122 @@ class ContinualLearner(nn.Module, metaclass=abc.ABCMeta):
                 self.KFAC_FISHER_INFO[label][param_name] = p
 
         self.EWC_task_count = 1
+
+        # Set model back to its initial mode
+        self.train(mode=mode)
+        
+        
+    def estimate_owm_fisher(self,
+                             dataset,
+                             allowed_classes=None,
+                             collate_fn=None):
+        '''After completing training on a task, estimate OWM Fisher Information matrix.
+
+        [dataset]:          <DataSet> to be used to estimate FI-matrix
+        [allowed_classes]:  <list> with class-indeces of 'allowed' or 'active' classes'''
+
+        fcE = self.fcE
+        classifier = self.classifier
+
+        def initialize_for_fcLayer(layer):
+            if not isinstance(layer, fc_layer):
+                raise NotImplemented
+            linear = layer.linear
+            g_dim, a_dim = linear.weight.shape
+            abar_dim = a_dim + 1 if linear.bias is not None else a_dim
+            A = torch.zeros(abar_dim, abar_dim)
+            if linear.bias is None:
+                bias = None
+            else:
+                bias = linear.bias.data.clone()
+            return {
+                'A': A,
+                'weight': linear.weight.data.clone(),
+                'bias': bias
+            }
+
+        def initialize():
+            est_fisher_info = {}
+            for i in range(1, fcE.layers + 1):
+                label = f"fcLayer{i}"
+                layer = getattr(fcE, label)
+                est_fisher_info[label] = initialize_for_fcLayer(layer)
+            est_fisher_info['classifier'] = initialize_for_fcLayer(classifier)
+            return est_fisher_info
+
+        def update_fisher_info_layer(est_fisher_info, intermediate, label, n_samples):
+            _a = intermediate[label].detach()
+            # Here we do one batch at a time (not ideal)
+            assert (_a.shape[0] == 1)
+            a = _a[0]
+            if classifier.bias is None:
+                abar = a
+            else:
+                o = torch.ones(*a.shape[0:-1], 1).to(self._device())
+                abar = torch.cat((a, o), -1)
+            A = abar[..., None] @ abar[..., None, :]
+            Ao = est_fisher_info[label]['A'].to(self._device())
+            est_fisher_info[label]['A'] = Ao + A / n_samples
+
+        def update_fisher_info(est_fisher_info, intermediate, n_samples):
+            for i in range(1, fcE.layers + 1):
+                label = f"fcLayer{i}"
+                update_fisher_info_layer(est_fisher_info, intermediate, label,n_samples)
+            update_fisher_info_layer(est_fisher_info, intermediate,
+                                     'classifier', n_samples)
+
+        # initialize estimated fisher info
+        est_fisher_info = initialize()
+        # Set model to evaluation mode
+        mode = self.training
+        self.eval()
+
+        # Create data-loader to give batches of size 1
+        data_loader = utils.get_data_loader(dataset,
+                                            batch_size=1,
+                                            cuda=self._is_on_cuda(),
+                                            collate_fn=collate_fn)
+
+        if self.fisher_n is None:
+            n_samples = len(data_loader)
+        else:
+            n_samples = self.fisher_n
+
+        # Estimate the FI-matrix for [self.fisher_n] batches of size 1
+        for i, (x, _) in enumerate(data_loader):
+            if i > n_samples:
+                break
+            # run forward pass of model
+            x = x.to(self._device())
+            if allowed_classes is None:
+                output, intermediate = self(x, return_intermediate=True)
+            else:
+                _output, intermediate = self(x, return_intermediate=True)
+                output = _output[:, allowed_classes]
+            
+            self.zero_grad()
+            update_fisher_info(est_fisher_info, intermediate, n_samples)
+        
+        if self.EWC_task_count == 0:
+            self.KFAC_FISHER_INFO = {}
+                
+        for label in est_fisher_info:
+            An = est_fisher_info[label]['A'].to(self._device()) #new kronecker factor
+            if self.EWC_task_count == 0:
+                self.KFAC_FISHER_INFO[label] = {}
+                As = An
+            else:
+                Ao = self.gamma * self.KFAC_FISHER_INFO[label]['A'].to(self._device()) #old kronecker factor
+                frac = 1/(self.EWC_task_count + 1)
+                As = (1-frac)*Ao + frac*An
+                
+            self.KFAC_FISHER_INFO[label]['A'] = As
+
+            for param_name in ['weight', 'bias']:
+                p = est_fisher_info[label][param_name].to(self._device())
+                self.KFAC_FISHER_INFO[label][param_name] = p
+
+        self.EWC_task_count += 1
 
         # Set model back to its initial mode
         self.train(mode=mode)

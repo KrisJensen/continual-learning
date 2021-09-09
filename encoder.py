@@ -28,10 +28,11 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                  ewc=False,
                  ncl=False,
                  kfncl=False,
+                 owm = False,
                  ewc_kfac = False,
                  alpha=1e-10,
                  data_size=12000.):
-
+        
         # configurations
         super().__init__()
         self.classes = classes
@@ -47,6 +48,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
 
         self.ncl = ncl  #whether to use the NCL algorithm
         self.kfncl = kfncl  #whether to use the KFNCL algorithm
+        self.owm = owm,
         self.ewc = ewc
         self.ewc_kfac = ewc_kfac #whether to use KFAC
         self.kfac = (kfncl or ewc_kfac) #work with kronecker factored Fishers for both these methods
@@ -362,7 +364,7 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
                     p.grad /= self.data_size  #scale learning rate by prior (necessary for stability in first task)
 
         #### KF NCL gradients ####
-        if self.kfncl:  #if using NCL with KFAC, scale gradients by inverse Fisher kronecker factors
+        elif self.kfncl:  #if using NCL with KFAC, scale gradients by inverse Fisher kronecker factors
             if not self.online:
                 raise NotImplemented
             if not hasattr(self, 'fcE'):
@@ -419,6 +421,40 @@ class Classifier(ContinualLearner, Replayer, ExemplarHandler):
             for i in range(1, fcE.layers):
                 label = f"fcLayer{i}"
                 scale_grad(label, getattr(fcE, label))
+                
+        elif self.owm and self.EWC_task_count >= 1:
+            def scale_grad(label, layer):
+                info = self.KFAC_FISHER_INFO[label] #get previous KFAC fisher
+                A = info['A'].to(self._device())
+                
+                linear = layer.linear
+                if linear.bias is not None:
+                    g = torch.cat(
+                        (linear.weight.grad, linear.bias.grad[..., None]), -1).clone()
+                else:
+                    g = layer.linear.weight.grad.clone()
+
+                assert (g.shape[-1] == A.shape[-1])
+                iA = torch.eye(A.shape[0]).to(self._device()) #* (self.alpha)
+                As = A/self.alpha + iA
+                Ainv = torch.inverse(As)
+                scaled_g = g @ Ainv
+                
+                #print(A.shape, Ainv.shape, g.shape, scaled_g.shape)
+                
+                if linear.bias is not None:
+                    linear.weight.grad = scaled_g[..., 0:-1].detach()
+                    linear.bias.grad = scaled_g[...,-1].detach()
+                else:
+                    linear.weight.grad = scaled_g[...,0:-1, :]
+
+            fcE = self.fcE
+            classifier = self.classifier
+            scale_grad('classifier', classifier)
+            for i in range(1, fcE.layers):
+                label = f"fcLayer{i}"
+                scale_grad(label, getattr(fcE, label))
+            
 
         # Take optimization-step
         self.optimizer.step()

@@ -352,22 +352,7 @@ def train_cl(model,
             progress_gen.close()
 
         # EWC: estimate Fisher Information matrix (FIM) and update term for quadratic penalty
-        if isinstance(model, ContinualLearner) and (model.ewc or model.ncl):
-            # -find allowed classes
-            allowed_classes = list(
-                range(classes_per_task * (task - 1), classes_per_task *
-                      task)) if scenario == "task" else (
-                          list(range(classes_per_task *
-                                     task)) if scenario == "class" else None)
-            # -if needed, apply correct task-specific mask
-            if model.mask_dict is not None:
-                model.apply_XdGmask(task=task)
-            # -estimate FI-matrix
-            model.estimate_fisher(training_dataset,
-                                  allowed_classes=allowed_classes)
-
-        # estimate kfac ncl
-        if isinstance(model, ContinualLearner) and (model.kfncl or model.kfac):
+        if isinstance(model, ContinualLearner):
             # -find allowed classes
             allowed_classes = list(
                 range(classes_per_task * (task - 1), classes_per_task *
@@ -378,8 +363,16 @@ def train_cl(model,
             if model.mask_dict is not None:
                 model.apply_XdGmask(task=task)
             # -estimate KFAC FI-matrix
-            model.estimate_kfac_fisher(training_dataset,
-                                       allowed_classes=allowed_classes)
+            
+            if (model.ewc or model.ncl): ##diagonal fisher
+                model.estimate_fisher(training_dataset,
+                                    allowed_classes=allowed_classes)
+            elif (model.kfncl or model.kfac): #kronecker factored fisher
+                model.estimate_kfac_fisher(training_dataset,
+                                           allowed_classes=allowed_classes)
+            elif model.owm: #owm fisher
+                model.estimate_owm_fisher(training_dataset,
+                                           allowed_classes=allowed_classes)
 
         # SI: calculate and update the normalized path integral
         if isinstance(model, ContinualLearner) and (model.si_c > 0):

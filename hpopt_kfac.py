@@ -13,7 +13,7 @@ from param_values import set_default_values
 description = 'Compare CL strategies using various metrics on each scenario of permuted or split MNIST.'
 parser = argparse.ArgumentParser('./hpopt_kfac.py', description=description)
 parser.add_argument('--seed', type=int, default=30, help='[first] random seed (for each random-module used)')
-parser.add_argument('--n-seeds', type=int, default=5, help='how often to repeat?')
+parser.add_argument('--n-seeds', type=int, default=15, help='how often to repeat?')
 parser.add_argument('--no-gpus', action='store_false', dest='cuda', help="don't use GPUs")
 parser.add_argument('--data-dir', type=str, default='./datasets', dest='d_dir', help="default: %(default)s")
 parser.add_argument('--plot-dir', type=str, default='./plots', dest='p_dir', help="default: %(default)s")
@@ -91,15 +91,12 @@ cl_params.add_argument('--ncl', action='store_true', help="use 'NCL' ")
 cl_params.add_argument('--kfncl', action='store_true', help="use 'KF NCL' ")
 train_params.add_argument('--alpha',
                           type=float,
-                          default=1e-10,
                           help="regularization alpha")
 train_params.add_argument('--data_size',
                           type=float,
-                          default=12000.,
                           help="prior data size")
 train_params.add_argument('--momentum',
                           type=float,
-                          default=0.9,
                           help="momentum to use with SGD")
 train_params.add_argument('--cudanum',
                          type = str,
@@ -108,6 +105,9 @@ train_params.add_argument('--cudanum',
 
 ## KFAC parameters
 cl_params.add_argument('--ewc_kfac', action='store_true', help="use 'EWC with KFAC' (Ritter et al. 2018) ")
+
+## projection parameters ##
+cl_params.add_argument('--owm', action='store_true', help="use orthogonal weight modification (Zeng et al. 2018) ")
 
 
 def get_results(args):
@@ -180,11 +180,22 @@ if __name__ == '__main__':
     args.icarl = False
     # args.seed could of course also vary!
     
-    if args.experiment == 'splitMNIST':
-        lambdas = 10.**np.array([0,1,2,3,4,5,6,7,8])
+    if args.owm:
+        owm = True
+        print('running owm!!')
+        args.ewc_kfac = False
+        args.optimizer = 'sgd'
+        args.lr=5e-2
+        if args.experiment == 'splitMNIST':
+            lambdas = 10.**np.array([-7, -6,-5,-4,-3,-2,-1,0,1])
+        else:
+            lambdas = 10.**np.array([-7, -6,-5,-4,-3,-2,-1,0,1])
     else:
-        lambdas = 10.**np.array([-2,-1,0,1,2,3,4,5,6])
-    #lambdas = 10.**np.array([-4, 0, 2, 4, 6, 8])
+        args.ewc_kfac = True
+        if args.experiment == 'splitMNIST':
+            lambdas = 10.**np.array([0,1,2,3,4,5,6,7,8])
+        else:
+            lambdas = 10.**np.array([-2,-1,0,1,2,3,4,5,6])
 
     #-------------------------------------------------------------------------------------------------#
 
@@ -199,7 +210,6 @@ if __name__ == '__main__':
     ## KFAC
     args.replay = "none"
     args.ewc = False
-    args.ewc_kfac = True
     args.online = True
     args.gamma = 1.
     
@@ -207,12 +217,20 @@ if __name__ == '__main__':
     
     for ilambda, lambda_ in enumerate(lambdas):
         print('\n\nnew lambda:', lambda_)
-        args.ewc_lambda = lambda_
-        #args.lambda = lambda_
-        args.o_lambda = lambda_
+        
+        if args.owm:
+            args.alpha = lambda_
+        else:
+            args.ewc_lambda = lambda_
+            args.o_lambda = lambda_
+            
         KFAC = {}
         KFAC = collect_all(KFAC, seed_list, args, name="KFAC")
         result[ilambda] = KFAC
         
     savename = "summary-{}-{}".format(args.experiment, args.scenario)
-    pickle.dump(result, open('ncl_results/hpopt_kfac_'+savename+'.p', 'wb'))
+    
+    if args.owm:
+        pickle.dump(result, open('ncl_results/hpopt_owm_'+savename+'.p', 'wb'))
+    else:
+        pickle.dump(result, open('ncl_results/hpopt_kfac_'+savename+'.p', 'wb'))
